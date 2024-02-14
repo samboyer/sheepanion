@@ -277,27 +277,49 @@ if ($bot_mentioned || $is_dm) {
         send_message($sender_email, "```\nYou have adopted $num_sheeps sheep 🐑\n```");
     }
     elseif ($msg_words[0] === 'donate') {
-        $src_num_sheeps = load_sheep_count($sender_email);
         $cmd_num_donate = $msg_words[1];
         $cmd_send_recipient = $msg_words[2];
 
+        $src_num_sheeps = load_sheep_count($sender_email);
+        $dest_num_sheeps = load_sheep_count($cmd_send_recipient);
+
+
+        // input validation
+        if ($sender_email == $cmd_send_recipient) {
+            send_cow_message($sender_email, "You can't donate sheep to yourself. self-kindness is banned.");
+            return;
+        }
+        if (filter_var($cmd_num_donate, FILTER_VALIDATE_INT) === false || $cmd_num_donate == 0) {
+            send_cow_message($sender_email, "Invalid sheep number. Whole numbers of sheep only please.");
+            return;
+        }
         if (preg_match('/^[\w_.+-]+@[\w-]+\.[\w-.]+$/', $cmd_send_recipient) != 1) {
             send_cow_message($sender_email, "Invalid email address '$cmd_send_recipient'");
             return;
         }
-        if ($cmd_num_donate > $src_num_sheeps) {
+        if ($cmd_num_donate > 0 && $cmd_num_donate > $src_num_sheeps) {
             send_cow_message($sender_email, "You don't have that many sheep to donate!");
             return;
         }
+        $neg = -$cmd_num_donate;
+        if ($cmd_num_donate < 0 && $neg > $dest_num_sheeps) {
+            send_cow_message($sender_email, "'recipient' doesn't have enough sheep to steal.");
+            return;
+        }
 
-        $dest_num_sheeps = load_sheep_count($cmd_send_recipient);
         $dest_num_sheeps+=$cmd_num_donate;
         $src_num_sheeps-=$cmd_num_donate;
         write_sheep_count($sender_email, $src_num_sheeps);
         write_sheep_count($cmd_send_recipient, $dest_num_sheeps);
 
-        send_cow_message($sender_email, "farewell 😔");
-        send_message($cmd_send_recipient, "🐑 You have received $cmd_num_donate sheep from an undisclosed recipient 🐑");
+        if ($cmd_num_donate > 0) {
+            send_cow_message($sender_email, "farewell 😔");
+            send_message($cmd_send_recipient, "🐑 You have received $cmd_num_donate sheep from an undisclosed recipient 🐑");
+        } else {
+            $neg = -$cmd_num_donate;
+            send_cow_message($sender_email, "You have embarked on a life of crime. your contact details have been forwarded to the sheep police.");
+            send_message($cmd_send_recipient, "🐑🏴‍☠️ $neg of your sheep have been stolen by a mysterious figure looking suspiciously like $sender_email 🐑🏴‍☠️");
+        }
     }
     else {
         send_hint($sender_email);
